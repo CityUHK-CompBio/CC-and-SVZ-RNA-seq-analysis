@@ -1,0 +1,47 @@
+## To identify potential biological functions and signalling pathways associated with the target genes of circadian clock, 
+## gene set enrichment analysis (GSEA) with 1000 permutations and hypergeometric tests (BH-adjusted P-value < 0.05) were 
+## performed based on functional gene sets from Gene Ontology and KEGG databases using R package HTSanalyzeR.
+
+library(org.Mm.eg.db)
+library(HTSanalyzeR2)
+library(KEGGREST)
+
+setwd("~/GSEA/")
+
+allgenes <- rownames(res)
+hits <-  rownames(DEGs)
+
+## HTSanalyzeR
+phenotype <- res[,"log2FoldChange"]
+names(phenotype) <- rownames(NSP_res)
+
+GO_MF <- GOGeneSets(species="Mm", ontologies=c("MF"))
+GO_BP <- GOGeneSets(species="Mm", ontologies=c("BP"))
+GO_CC <- GOGeneSets(species="Mm", ontologies=c("CC")) 
+PW_KEGG <- KeggGeneSets(species="Mm")
+
+ListGSC <- list(GO_MF=GO_MF,GO_CC=GO_CC,GO_BP=GO_BP,PW_KEGG=PW_KEGG)
+GOsets <- c("GO_MF","GO_CC","GO_BP")
+KEGGsets <- "PW_KEGG"
+
+gsca <- GSCA(listOfGeneSetCollections=ListGSC, 
+             geneList=phenotype, hits=hits)
+
+## preprocess
+gsca1 <- preprocess(gsca, species="Mm", initialIDs="SYMBOL",
+                    keepMultipleMappings=TRUE, duplicateRemoverMethod="max",
+                    orderAbsValue=FALSE)
+
+## analysis
+gsca2 <- analyze(gsca1, 
+                 para=list(pValueCutoff=0.05, pAdjustMethod="BH",
+                           nPermutations=1000, minGeneSetSize=3,
+                           exponent=1), 
+                 doGSOA = TRUE,doGSEA=TRUE)
+
+## append gene sets terms
+gsca3 <- appendGSTerms(gsca2, goGSCs= c("GO_MF","GO_CC", "GO_BP"),
+                       keggGSCs=c("PW_KEGG"),species="Mm")
+report(gsca3)
+
+## end

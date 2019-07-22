@@ -1,0 +1,29 @@
+## RNA-seq raw reads for wild type and Bmal1 knockout experiments were mapped to the UCSC mouse reference genome (mm10)
+## and calculation of gene counts using STAR (version 2.7.1a). Only uniquely mapped reads were retained for the subsequent analyses.
+## alignment
+
+STAR --runThreadN 15 --genomeDir ~/ReferenceGenome/STAR_mm10_Index --readFilesIn $read --outFileNamePrefix ~/STAR_alignment/${read}_ --outFilterType BySJout --outSAMtype BAM Unsorted --quantMode TranscriptomeSAM GeneCounts
+rsem-calculate-expression -p 20 -bam ~/STAR_alignment/${read}_Aligned.toTranscriptome.out.bam ~/ReferenceGenome/RSEM_star_mm10_Index/mm10 ~/RSEM_results/${read}_
+
+#2 Differentially expressed genes between BKO and WT experiments were identified using DESeq2 in R.
+
+library(DESeq2)
+setwd("~/DEGs/")
+load("RawCounts.rda")
+counts_filtered <- counts[ rowSums(counts==0) < 4, ]
+
+coldata <-data.frame(name =  c("WT1","WT2","WT3",
+                               "BKO1","BKO2","BKO3"),
+                     condition = c("WT","WT","WT",
+                                   "BKO","BKO","BKO"))
+cds <- DESeqDataSetFromMatrix(countData = counts_filtered,
+                              colData = coldata,
+                              design = ~ condition)
+
+colData(cds)$condition <- relevel(colData(cds)$condition , "WT")
+
+dds <- DESeq(cds)
+res <- results(dds)
+DEGs <- res[intersect(which(abs(res$log2FoldChange) >1 ),which(res$padj < 0.05)),]
+
+## end
